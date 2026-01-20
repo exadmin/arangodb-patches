@@ -5,7 +5,7 @@ ARG TAG=v3.11.14
 FROM debian:12 AS builder
 ARG TAG
 
-# 1. Устанавливаем зависимости
+# 1. Installing dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
   build-essential cmake \
   clang-16 lld-16 llvm-16 libomp-16-dev \
@@ -14,11 +14,11 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   git-core wget unzip tar nodejs npm && \
   npm install -g yarn && apt-get clean -y
 
-# 2. Клонируем ArangoDB
+# 2. Cloning ArangoDB
 RUN git clone --branch ${TAG} --depth 1 --recurse-submodules \
   https://github.com/arangodb/arangodb.git /opt/arangodb/src
 
-# 3. Применяем патчи
+# 3. Applying patches
 COPY patches /opt/arangodb/src/patches
 RUN cd /opt/arangodb/src && \
   for p in patches/*.patch; do \
@@ -26,7 +26,7 @@ RUN cd /opt/arangodb/src && \
     git apply -p1 --ignore-space-change --ignore-whitespace "$p"; \
   done
 
-# 4. Сборка с DESTDIR
+# 4. Building with DESTDIR
 RUN mkdir /opt/arangodb/build && cd /opt/arangodb/build && \
   cmake /opt/arangodb/src \
     -DCMAKE_C_COMPILER=/usr/bin/clang-16 \
@@ -51,7 +51,7 @@ ARG TAG
 ENV ARANGO_VERSION=${TAG}
 ENV PATH="/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:$PATH"
 
-# 1. Устанавливаем рантайм-зависимости
+# 1. Installing runtime-dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
   bash gnupg pwgen binutils numactl libssl3 libatomic1 libomp5 nodejs npm && \
   npm install -g yarn && \
@@ -59,19 +59,19 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   apt-get clean && rm -rf /var/lib/apt/lists/**
 
 
-# 2. Создаём пользователя и группу arangodb
+# 2. Creating "arangodb" user and group
 RUN groupadd --system arangodb && \
     useradd --system --gid arangodb --home-dir /var/lib/arangodb3 --shell /bin/false arangodb
 
-# 3. Копируем установленные бинарники
+# 3. Installed binnary files copying
 COPY --from=builder /opt/arangodb-dist/usr /usr
 
-# 4. Обеспечиваем наличие симлинков и конфигурации
+# 4. Ensure simlinks and configuration files
 RUN mkdir -p /etc/arangodb3 && \
     ln -sf /usr/etc/arangodb3/arangod.conf /etc/arangodb3/arangod.conf && \
     ln -sf /usr/sbin/arangod /usr/bin/arangod
 
-# 4. Права и тома
+# 4. Setup grants and volumes
 RUN mkdir -p /var/lib/arangodb3 /var/lib/arangodb3-apps /var/log/arangodb3 && \
     chgrp -R 0 /var/lib/arangodb3 /var/lib/arangodb3-apps /var/log/arangodb3 && \
     chmod -R 775 /var/lib/arangodb3 /var/lib/arangodb3-apps /var/log/arangodb3 && \
